@@ -703,43 +703,19 @@ namespace AutoVideoCreator.Application.ViewModels
                 CreateSubtitles(srtFilePath, tekst, TimeSpan.FromSeconds(audioDurationSeconds));
                 Debug.WriteLine($"Wygenerowano plik SRT: {srtFilePath}");
 
-                // ROZWIĄZANIE: zamiast filtru subtitles, używamy libass bezpośrednio
-                // Usuń apostrofy i używaj podwójnych ukośników w ścieżce
-                string escapedPath = srtFilePath.Replace("\\", "\\\\");
+                // Kluczowa zmiana: używamy dokładnie takiej samej składni jak w działającej komendzie
+                // Zamieniamy backslashe na forward slashe z zachowaniem jednego backslasha przed dwukropkiem
+                string modifiedPath = srtFilePath
+                    .Replace("\\", "/")          // Zamień backslashe na forward slashe
+                    .Replace(":", "\\:");        // Escapuj dwukropek w nazwie dysku
 
-                // Utwórz tymczasowy plik ASS o tej samej nazwie, ale z rozszerzeniem .ass
-                string assFilePath = Path.ChangeExtension(srtFilePath, ".ass");
-
-                // Konwersja SRT do ASS za pomocą FFmpeg
-                var convertProcess = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = Path.Combine(ffmpegPath, "ffmpeg.exe"),
-                        Arguments = $"-i \"{srtFilePath}\" \"{assFilePath}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardError = true,
-                        RedirectStandardOutput = true
-                    }
-                };
-
-                convertProcess.Start();
-                await convertProcess.WaitForExitAsync();
-
-                if (convertProcess.ExitCode != 0 || !File.Exists(assFilePath))
-                {
-                    throw new Exception("Nie udało się przekonwertować pliku SRT do formatu ASS");
-                }
-
-                // Teraz używamy filtru ass zamiast subtitles
+                // DOKŁADNA składnia jak w działającej komendzie
                 var captionProcess = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = Path.Combine(ffmpegPath, "ffmpeg.exe"),
-                        // Używamy filtru ass, który jest bardziej niezawodny
-                        Arguments = $"-i \"{audioVideoPath}\" -vf \"ass={assFilePath.Replace("\\", "\\\\")}\" -c:a copy -y \"{finalVideoPath}\"",
+                        Arguments = $"-i \"{audioVideoPath}\" -vf \"subtitles='{modifiedPath}':force_style='FontSize=24,Alignment=10'\" -c:a copy -y \"{finalVideoPath}\"",
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardError = true,
@@ -795,8 +771,7 @@ namespace AutoVideoCreator.Application.ViewModels
                         $"ERROR LOG:\n{errorBuilder}\n\n" +
                         $"OUTPUT LOG:\n{outputBuilder}\n\n" +
                         $"COMMAND:\n{captionProcess.StartInfo.Arguments}\n\n" +
-                        $"SRT CONTENT:\n{File.ReadAllText(srtFilePath)}\n\n" +
-                        $"ASS CONTENT:\n{(File.Exists(assFilePath) ? File.ReadAllText(assFilePath) : "Plik ASS nie istnieje")}"
+                        $"SRT CONTENT:\n{File.ReadAllText(srtFilePath)}"
                     );
 
                     throw new Exception($"Błąd podczas dodawania napisów. Kod wyjścia: {captionProcess.ExitCode}\n" +
@@ -809,7 +784,6 @@ namespace AutoVideoCreator.Application.ViewModels
                     // Możemy zostawić pliki napisów do inspekcji przy debugowaniu
                     // Odkomentuj poniższe linie, gdy wszystko działa poprawnie
                     // if (File.Exists(srtFilePath)) File.Delete(srtFilePath);
-                    // if (File.Exists(assFilePath)) File.Delete(assFilePath);
                 }
                 catch (Exception ex)
                 {
@@ -824,8 +798,6 @@ namespace AutoVideoCreator.Application.ViewModels
                 throw new Exception($"Błąd podczas dodawania napisów: {ex.Message}", ex);
             }
         }
-
-
 
 
         private void CreateSubtitles(string filePath, string tekst, TimeSpan duration)
