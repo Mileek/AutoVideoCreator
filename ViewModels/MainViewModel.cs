@@ -6,14 +6,9 @@ using AutoVideoCreator.Application.Interfaces;
 using System.IO;
 using Microsoft.Win32;
 using System.Diagnostics;
-using FFmpeg.NET;
 using System.Linq;
 using FFMpegCore;
-using FFMpegCore.Enums;
-using System.ComponentModel;
 using System.Windows;
-using System.Collections.Generic;
-using FFmpeg.NET.Exceptions;
 using System.Threading;
 
 namespace AutoVideoCreator.Application.ViewModels
@@ -25,6 +20,48 @@ namespace AutoVideoCreator.Application.ViewModels
         private string _inputText = "Wpisz swój tekst tutaj...";
         private bool _isProcessing = false;
         private string _subtitlesText = "Wpisz tekst napisów tutaj...";
+
+        
+        private double _videoSaturation = 1.4;  // Domyślna wartość saturacji (1.0 = normalne nasycenie)
+        private double _videoBrightness = 0.0;  // Domyślna wartość jasności (0.0 = normalna jasność)
+        private double _backgroundVolume = 0.2; // Głośność tła jako 20% oryginalnej głośności
+
+        public double VideoSaturation
+        {
+            get { return _videoSaturation; }
+            set
+            {
+                if (_videoSaturation == value)
+                    return;
+                _videoSaturation = Math.Clamp(value, 0.0, 3.0); // Ograniczenie zakresu od 0 do 3
+                NotifyOfPropertyChange();
+            }
+        }
+
+        public double VideoBrightness
+        {
+            get { return _videoBrightness; }
+            set
+            {
+                if (_videoBrightness == value)
+                    return;
+                _videoBrightness = Math.Clamp(value, -1.0, 1.0); // Ograniczenie zakresu od -1 do 1
+                NotifyOfPropertyChange();
+            }
+        }
+
+        public double BackgroundVolume
+        {
+            get { return _backgroundVolume; }
+            set
+            {
+                if (_backgroundVolume == value)
+                    return;
+                _backgroundVolume = Math.Clamp(value, 0.0, 1.0); // Ograniczenie zakresu od 0 do 1
+                NotifyOfPropertyChange();
+            }
+        }
+
 
         public string InputText
         {
@@ -437,23 +474,23 @@ namespace AutoVideoCreator.Application.ViewModels
                 // Generowanie napisów
                 CreateSubtitles(subtitlesPath, SubtitlesText, ttsDuration);
 
-                // KROK 1: Wycinanie fragmentu wideo - ZOPTYMALIZOWANE
+                // KROK 1: Wycinanie fragmentu wideo z przyciszonym dźwiękiem
                 ProgressStatus = "Wycinanie fragmentu wideo...";
 
                 try
                 {
                     // Bezpośrednie wywołanie FFmpeg dla szybszego działania z opcją -ss przed inputem
-                    // Konwersja na format invariant culture, żeby zawsze była kropka jako separator dziesiętny
                     string startTimeStr = startTime.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     string durationStr = ttsDuration.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    string volumeStr = BackgroundVolume.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
                     var extractProcess = new Process
                     {
                         StartInfo = new ProcessStartInfo
                         {
                             FileName = Path.Combine(ffmpegPath, "ffmpeg.exe"),
-                            // Kluczowa zmiana: użycie startTimeStr zamiast startTime
-                            Arguments = $"-ss {startTimeStr} -i \"{randomVideo}\" -t {durationStr} -an -c:v h264_nvenc -preset p1 -b:v 5M -y \"{extractedPath}\"",
+                            // Zachowujemy ścieżkę dźwiękową (-c:a aac) i przyciszamy ją (-af "volume=0.2")
+                            Arguments = $"-ss {startTimeStr} -i \"{randomVideo}\" -t {durationStr} -c:v h264_nvenc -preset p1 -b:v 5M -c:a aac -af \"volume={volumeStr}\" -y \"{extractedPath}\"",
                             UseShellExecute = false,
                             CreateNoWindow = true,
                             RedirectStandardError = true,
@@ -493,13 +530,13 @@ namespace AutoVideoCreator.Application.ViewModels
                         throw new Exception($"Błąd podczas wycinania fragmentu wideo. Kod wyjścia: {extractProcess.ExitCode}\nSzczegóły:\n{errorBuilder}");
                     }
 
-                    // KROK 2: Konwersja do formatu pionowego - bez zmian
+                    // KROK 2: Konwersja do formatu pionowego z modyfikacją nasycenia i jasności
                     await ConvertToVertical(ffmpegPath, tempVideoPath, extractedPath);
 
-                    // KROK 3: Dodawanie audio - bez zmian
+                    // KROK 3: Dodawanie audio TTS
                     await GenerateAudio(ffmpegPath, tempVideoPath, audioVideoPath, ttsAudioPath);
 
-                    // KROK 4: Dodawanie napisów - bez zmian
+                    // KROK 4: Dodawanie napisów
                     await GenerateSubtitles(SubtitlesText, ffmpegPath, audioVideoPath, finalVideoPath);
 
                     // Sprzątanie plików tymczasowych
@@ -530,6 +567,7 @@ namespace AutoVideoCreator.Application.ViewModels
         }
 
 
+
         private async Task ConvertToVertical(string ffmpegPath, string tempVideoPath, string extractedPath)
         {
             using var cancellationToken = new CancellationTokenSource();
@@ -540,16 +578,18 @@ namespace AutoVideoCreator.Application.ViewModels
                 if (!File.Exists(extractedPath))
                     throw new FileNotFoundException("Nie znaleziono pliku źródłowego do konwersji pionowej.");
 
+                // Konwersja wartości jasności i nasycenia do formatu invariant culture
+                string saturationStr = VideoSaturation.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                string brightnessStr = VideoBrightness.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
                 var verticalProcess = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = Path.Combine(ffmpegPath, "ffmpeg.exe"),
-                        // Zmodyfikowany filtr wideo:
-                        // 1. crop=iw/2.4:ih:x=iw/2-iw/4.8 - wycina środkową część obrazu (szerokość to około 42% oryginalnej szerokości)
-                        // 2. scale=1080:1920:force_original_aspect_ratio=increase - skaluje do wysokości 1920px zachowując proporcje
-                        // 3. crop=1080:1920 - przycina dokładnie do wymiarów 1080x1920
-                        Arguments = $"-i \"{extractedPath}\" -vf \"crop=iw/2.4:ih:x=iw/2-iw/4.8,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920\" -c:v libx264 -crf 23 -preset faster -an -y \"{tempVideoPath}\"",
+                        // WAŻNA ZMIANA: Usunąłem opcję -an i dodałem -c:a copy, aby zachować ścieżkę audio
+                        // Dodałem również filtr eq dla nasycenia i jasności
+                        Arguments = $"-i \"{extractedPath}\" -vf \"crop=iw/2.4:ih:x=iw/2-iw/4.8,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=saturation={saturationStr}:brightness={brightnessStr}\" -c:v libx264 -crf 23 -preset faster -c:a copy -y \"{tempVideoPath}\"",
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardError = true,
@@ -613,7 +653,10 @@ namespace AutoVideoCreator.Application.ViewModels
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = Path.Combine(ffmpegPath, "ffmpeg.exe"),
-                        Arguments = $"-i \"{tempVideoPath}\" -i \"{ttsAudioPath}\" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest -y \"{audioVideoPath}\"",
+                        // WAŻNA ZMIANA: Teraz miksujemy obie ścieżki audio razem
+                        // -filter_complex "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[a]" 
+                        // -map 0:v -map "[a]"
+                        Arguments = $"-i \"{tempVideoPath}\" -i \"{ttsAudioPath}\" -filter_complex \"[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[a]\" -map 0:v -map \"[a]\" -c:v copy -c:a aac -shortest -y \"{audioVideoPath}\"",
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardError = true,
@@ -715,7 +758,7 @@ namespace AutoVideoCreator.Application.ViewModels
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = Path.Combine(ffmpegPath, "ffmpeg.exe"),
-                        Arguments = $"-i \"{audioVideoPath}\" -vf \"subtitles='{modifiedPath}':force_style='FontSize=24,Alignment=10'\" -c:a copy -y \"{finalVideoPath}\"",
+                        Arguments = $"-i \"{audioVideoPath}\" -vf \"subtitles='{modifiedPath}':force_style='FontSize=24,Alignment=2,MarginV=70'\" -c:a copy -y \"{finalVideoPath}\"",
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardError = true,
@@ -799,68 +842,120 @@ namespace AutoVideoCreator.Application.ViewModels
             }
         }
 
-
         private void CreateSubtitles(string filePath, string tekst, TimeSpan duration)
         {
             try
             {
-                const int WORDS_PER_SEGMENT = 3; // 2-4 słowa na segment
                 const int CHARS_PER_MINUTE = 150;
                 double charsPerSecond = CHARS_PER_MINUTE / 60.0;
 
                 // Dzielimy tekst na słowa i usuwamy puste
                 var words = tekst.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                var segments = new List<string>();
-
-                // Grupowanie słów po 3 (WORDS_PER_SEGMENT)
-                for (int i = 0; i < words.Length; i += WORDS_PER_SEGMENT)
-                {
-                    // Pobierz 3 słowa lub mniej jeśli to koniec tekstu
-                    int count = Math.Min(WORDS_PER_SEGMENT, words.Length - i);
-                    string segment = string.Join(" ", words.Skip(i).Take(count));
-                    segments.Add(segment);
-                }
 
                 // Obliczanie czasu dla każdego segmentu
                 var srtBuilder = new StringBuilder();
                 double totalDuration = duration.TotalSeconds;
 
-                // Szacujemy czas jednego słowa
-                double totalWords = words.Length;
-                double timePerWord = totalDuration / totalWords;
+                // Obliczamy sumę długości wszystkich słów, żeby ustalić proporcje
+                int totalCharacters = words.Sum(w => w.Length);
+
+                // Minimalna długość słowa to 2 znaki dla celów kalkulacji
+                totalCharacters = Math.Max(totalCharacters, words.Length * 2);
 
                 double currentStartTime = 0;
 
-                for (int i = 0; i < segments.Count; i++)
+                // W tym przypadku każde słowo to osobny segment
+                for (int i = 0; i < words.Length; i++)
                 {
-                    int wordCount = segments[i].Split(' ').Length;
-                    double segmentDuration = timePerWord * wordCount;
+                    string word = words[i];
 
-                    // Minimalny czas wyświetlania segmentu to 1 sekunda
-                    segmentDuration = Math.Max(segmentDuration, 1.0);
+                    // Ustalamy efektywną długość słowa (minimum 2 znaki)
+                    int effectiveLength = Math.Max(word.Length, 2);
 
-                    double endTime = currentStartTime + segmentDuration;
+                    // Obliczenie czasu wyświetlania proporcjonalnie do długości słowa 
+                    // w stosunku do całkowitej długości tekstu
+                    double wordDuration = totalDuration * effectiveLength / totalCharacters;
+
+                    // Dodatkowy czas dla dłuższych słów
+                    if (word.Length > 8)
+                        wordDuration *= 1.2; // 20% więcej czasu dla bardzo długich słów
+                    else if (word.Length > 5)
+                        wordDuration *= 1.1; // 10% więcej czasu dla dłuższych słów
+
+                    // Minimalny czas wyświetlania słowa to 0.3 sekundy dla krótkich słów, 
+                    // 0.5 sekundy dla średnich i 0.8 dla długich
+                    if (word.Length <= 3)
+                        wordDuration = Math.Max(wordDuration, 0.3);
+                    else if (word.Length <= 6)
+                        wordDuration = Math.Max(wordDuration, 0.5);
+                    else
+                        wordDuration = Math.Max(wordDuration, 0.8);
+
+                    double endTime = currentStartTime + wordDuration;
 
                     string startTimeStr = TimeSpan.FromSeconds(currentStartTime).ToString(@"hh\:mm\:ss\,fff");
                     string endTimeStr = TimeSpan.FromSeconds(endTime).ToString(@"hh\:mm\:ss\,fff");
 
                     srtBuilder.AppendLine((i + 1).ToString());
                     srtBuilder.AppendLine($"{startTimeStr} --> {endTimeStr}");
-                    srtBuilder.AppendLine(segments[i]);
+                    srtBuilder.AppendLine(word);
                     srtBuilder.AppendLine();
 
-                    // Następny segment zaczyna się tuż po zakończeniu bieżącego
+                    // Następne słowo zaczyna się tuż po zakończeniu bieżącego
                     currentStartTime = endTime;
+                }
+
+                // Sprawdzamy, czy łączny czas napisów nie przekracza czasu trwania audio
+                if (currentStartTime > totalDuration)
+                {
+                    // Jeśli przekracza, to skalujemy wszystkie napisy proporcjonalnie
+                    double scaleFactor = totalDuration / currentStartTime;
+
+                    // Generujemy napisy od nowa z przeskalowanym czasem
+                    srtBuilder.Clear();
+                    currentStartTime = 0;
+
+                    for (int i = 0; i < words.Length; i++)
+                    {
+                        string word = words[i];
+                        int effectiveLength = Math.Max(word.Length, 2);
+                        double wordDuration = totalDuration * effectiveLength / totalCharacters * scaleFactor;
+
+                        if (word.Length > 8)
+                            wordDuration *= 1.2;
+                        else if (word.Length > 5)
+                            wordDuration *= 1.1;
+
+                        if (word.Length <= 3)
+                            wordDuration = Math.Max(wordDuration, 0.3 * scaleFactor);
+                        else if (word.Length <= 6)
+                            wordDuration = Math.Max(wordDuration, 0.5 * scaleFactor);
+                        else
+                            wordDuration = Math.Max(wordDuration, 0.8 * scaleFactor);
+
+                        double endTime = currentStartTime + wordDuration;
+
+                        string startTimeStr = TimeSpan.FromSeconds(currentStartTime).ToString(@"hh\:mm\:ss\,fff");
+                        string endTimeStr = TimeSpan.FromSeconds(endTime).ToString(@"hh\:mm\:ss\,fff");
+
+                        srtBuilder.AppendLine((i + 1).ToString());
+                        srtBuilder.AppendLine($"{startTimeStr} --> {endTimeStr}");
+                        srtBuilder.AppendLine(word);
+                        srtBuilder.AppendLine();
+
+                        currentStartTime = endTime;
+                    }
                 }
 
                 File.WriteAllText(filePath, srtBuilder.ToString(), Encoding.UTF8);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Błąd w GenerateSubtitles: {ex.Message}");
+                Console.WriteLine($"Błąd w CreateSubtitles: {ex.Message}");
                 throw;
             }
         }
+
 
         private async Task GenerateTTS(string tekst, string sciezkaPliku)
         {
