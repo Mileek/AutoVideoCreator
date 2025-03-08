@@ -865,6 +865,9 @@ namespace AutoVideoCreator.Application.ViewModels
 
         private async Task<bool> GenerateVideo(string fileName, TimeSpan ttsDuration, string tekst)
         {
+            // Lista wszystkich plików tymczasowych do późniejszego usunięcia
+            List<string> tempFiles = new List<string>();
+
             try
             {
                 // Ścieżki plików
@@ -872,10 +875,20 @@ namespace AutoVideoCreator.Application.ViewModels
                 string audioVideoPath = Path.Combine(AudioPath, $"{fileName}_audio.mp4");
                 string finalVideoPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
                 string ttsAudioPath = Path.Combine(AudioPath, $"{fileName}.mp3");
-                string subtitlesPath = Path.Combine(AudioPath, $"{fileName}.srt");
+                string subtitlesPath = Path.Combine(AudioPath, $"{fileName}.ass"); // Pierwszy plik napisów
                 string extractedPath = Path.Combine(AudioPath, $"{fileName}_extract.mp4");
 
-                // Wybór losowego pliku wideo
+                // Drugi plik napisów generowany w GenerateSubtitles
+                string finalSubtitlesPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.ass");
+
+                // Dodanie wszystkich plików tymczasowych do listy
+                tempFiles.Add(tempVideoPath);
+                tempFiles.Add(audioVideoPath);
+                tempFiles.Add(extractedPath);
+                tempFiles.Add(ttsAudioPath);
+                tempFiles.Add(subtitlesPath);
+                tempFiles.Add(finalSubtitlesPath); // Dodanie dodatkowego pliku ASS
+
                 var videoFiles = Directory.GetFiles(VideoSourceFolder, "*.mp4");
                 if (videoFiles.Length == 0)
                 {
@@ -883,65 +896,54 @@ namespace AutoVideoCreator.Application.ViewModels
                     return false;
                 }
 
-                // Wybierz losowy plik wideo i oblicz czas startowy
                 var randomVideo = videoFiles[new Random().Next(videoFiles.Length)];
-                var startTime = await CalculateStartTime(randomVideo, ttsDuration);
 
-                // Generowanie napisów
-                CreateAnimatedSubtitles(subtitlesPath, SubtitlesText, ttsDuration);
+                // Wykonaj operacje, które można przeprowadzić równolegle
+                var startTimeTask = CalculateStartTime(randomVideo, ttsDuration);
+                var subtitlesTask = Task.Run(() => CreateAnimatedSubtitles(subtitlesPath, SubtitlesText, ttsDuration));
 
-                // KROK 1: Wycinanie fragmentu wideo z przyciszonym dźwiękiem
+                // Oczekiwanie na zakończenie równoległych zadań
+                var startTime = await startTimeTask;
+                await subtitlesTask;
+
+                // Dalsze kroki w sekwencji
                 ProgressStatus = "Wycinanie fragmentu wideo...";
                 if (!await ExtractVideoSegment(randomVideo, extractedPath, startTime, ttsDuration))
                     return false;
 
-                // KROK 2: Konwersja do formatu pionowego z modyfikacją nasycenia i jasności
                 if (!await ConvertToVertical(ffmpegPath, tempVideoPath, extractedPath))
                     return false;
 
-                // KROK 3: Dodawanie audio TTS
                 if (!await GenerateAudio(ffmpegPath, tempVideoPath, audioVideoPath, ttsAudioPath))
                     return false;
 
-                // KROK 4: Dodawanie napisów
                 if (!await GenerateSubtitles(SubtitlesText, ffmpegPath, audioVideoPath, finalVideoPath))
                     return false;
 
-                // Sprzątanie plików tymczasowych
-                CleanupTempFiles(new[] { tempVideoPath, audioVideoPath, extractedPath });
+                // Czyszczenie wszystkich plików tymczasowych po zakończeniu
+                CleanupTempFiles(tempFiles.ToArray());
 
                 return true;
             }
             catch (Exception ex)
             {
+                // Próba usunięcia plików tymczasowych nawet w przypadku wystąpienia błędu
+                try
+                {
+                    CleanupTempFiles(tempFiles.ToArray());
+                }
+                catch
+                {
+                    // Ignorujemy błędy przy czyszczeniu w przypadku awarii
+                }
+
                 MessageBox.Show($"Błąd przy generowaniu wideo: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
 
-        //        if (result)
-        //        {
-        //            ProgressValue = 100;
-        //            ProgressStatus = "Zakończono!";
-        //            string finalPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
-        //            MessageBox.Show($"Proces tworzenia wideo zakończony pomyślnie!\nPlik: {finalPath}", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
-        //        }
-        //        else
-        //        {
-        //            MessageBox.Show("Wystąpił błąd podczas tworzenia wideo.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        MessageBox.Show($"Wystąpił błąd: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-        //    }
-        //    finally
-        //    {
-        //        IsProcessing = false;
-        //        ProgressStatus = "";
-        //        ProgressValue = 0;
-        //    }
-        //}
+
+
         private TimeSpan GetDuration(string path, string fileName)
         {
             string fullPath = Path.Combine(path, fileName);
@@ -1030,5 +1032,28 @@ namespace AutoVideoCreator.Application.ViewModels
         //        ProgressStatus = "Generowanie wideo...";
         //        ProgressValue = 60;
         //        bool result = await GenerateVideo(fileName, duration, InputText);
+        //        if (result)
+        //        {
+        //            ProgressValue = 100;
+        //            ProgressStatus = "Zakończono!";
+        //            string finalPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
+        //            MessageBox.Show($"Proces tworzenia wideo zakończony pomyślnie!\nPlik: {finalPath}", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show("Wystąpił błąd podczas tworzenia wideo.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show($"Wystąpił błąd: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //    }
+        //    finally
+        //    {
+        //        IsProcessing = false;
+        //        ProgressStatus = "";
+        //        ProgressValue = 0;
+        //    }
+        //}
     }
 }
