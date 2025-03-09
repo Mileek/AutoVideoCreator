@@ -19,13 +19,13 @@ namespace AutoVideoCreator.Application.ViewModels
         // Stałe aplikacji
         private readonly string apiKey = "";
 
-        private readonly double charPerSecond = 15.0;
+        private readonly double charPerSecond = 20.0;
         // Stała dla ścieżki FFmpeg
         private readonly string ffmpegPath = @"D:\ffmpeg";
 
         private readonly int maxCharacters = 1000;
         private readonly double maxDurationSeconds = 60;
-        private double _backgroundVolume = 0.15;
+        private double _backgroundVolume = 0.10;
 
         private string _inputText = "Wpisz swój tekst tutaj...";
 
@@ -206,79 +206,79 @@ namespace AutoVideoCreator.Application.ViewModels
             }
         }
 
-        public async Task Create()
-        {
-            if (!CanCreateVideo)
-                return;
+        //public async Task Create()
+        //{
+        //    if (!CanCreateVideo)
+        //        return;
 
-            try
-            {
-                IsProcessing = true;
-                ProgressValue = 0;
-                ProgressStatus = "Inicjalizacja...";
+        //    try
+        //    {
+        //        IsProcessing = true;
+        //        ProgressValue = 0;
+        //        ProgressStatus = "Inicjalizacja...";
 
-                if (!Directory.Exists(AudioPath))
-                {
-                    MessageBox.Show("Ścieżka wyjściowa nie istnieje!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+        //        if (!Directory.Exists(AudioPath))
+        //        {
+        //            MessageBox.Show("Ścieżka wyjściowa nie istnieje!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //            return;
+        //        }
 
-                if (!Directory.Exists(VideoSourceFolder) || !Directory.GetFiles(VideoSourceFolder, "*.mp4").Any())
-                {
-                    MessageBox.Show("Folder ze źródłowymi plikami wideo nie istnieje lub jest pusty!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+        //        if (!Directory.Exists(VideoSourceFolder) || !Directory.GetFiles(VideoSourceFolder, "*.mp4").Any())
+        //        {
+        //            MessageBox.Show("Folder ze źródłowymi plikami wideo nie istnieje lub jest pusty!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //            return;
+        //        }
 
-                // Użycie istniejącego pliku TTS podczas testów
-                string testTtsFile = @"K:\Pobrane\AutoMaker\504f292e-5a51-42aa-b08f-443446f7006a.mp3";
+        //        // Użycie istniejącego pliku TTS podczas testów
+        //        string testTtsFile = @"K:\Pobrane\AutoMaker\504f292e-5a51-42aa-b08f-443446f7006a.mp3";
 
-                if (!File.Exists(testTtsFile))
-                {
-                    MessageBox.Show("Nie znaleziono testowego pliku TTS. Sprawdź czy ścieżka jest poprawna.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+        //        if (!File.Exists(testTtsFile))
+        //        {
+        //            MessageBox.Show("Nie znaleziono testowego pliku TTS. Sprawdź czy ścieżka jest poprawna.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //            return;
+        //        }
 
-                var fileName = Guid.NewGuid().ToString();
-                string audioFilePath = Path.Combine(AudioPath, $"{fileName}.mp3");
+        //        var fileName = Guid.NewGuid().ToString();
+        //        string audioFilePath = Path.Combine(AudioPath, $"{fileName}.mp3");
 
-                // Kopiujemy istniejący plik TTS zamiast generować nowy
-                ProgressStatus = "Kopiowanie pliku audio...";
-                ProgressValue = 20;
-                File.Copy(testTtsFile, audioFilePath, true);
+        //        // Kopiujemy istniejący plik TTS zamiast generować nowy
+        //        ProgressStatus = "Kopiowanie pliku audio...";
+        //        ProgressValue = 20;
+        //        File.Copy(testTtsFile, audioFilePath, true);
 
-                // Pobranie długości pliku audio
-                ProgressStatus = "Analiza pliku audio...";
-                ProgressValue = 40;
-                TimeSpan duration = GetDuration(AudioPath, $"{fileName}.mp3");
+        //        // Pobranie długości pliku audio
+        //        ProgressStatus = "Analiza pliku audio...";
+        //        ProgressValue = 40;
+        //        TimeSpan duration = GetDuration(AudioPath, $"{fileName}.mp3");
 
-                // Generowanie wideo
-                ProgressStatus = "Generowanie wideo...";
-                ProgressValue = 60;
-                bool result = await GenerateVideo(fileName, duration, InputText);
+        //        // Generowanie wideo
+        //        ProgressStatus = "Generowanie wideo...";
+        //        ProgressValue = 60;
+        //        bool result = await GenerateVideo(fileName, duration, InputText);
 
-                if (result)
-                {
-                    ProgressValue = 100;
-                    ProgressStatus = "Zakończono!";
-                    string finalPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
-                    MessageBox.Show($"Proces tworzenia wideo zakończony pomyślnie!\nPlik: {finalPath}", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else
-                {
-                    MessageBox.Show("Wystąpił błąd podczas tworzenia wideo.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Wystąpił błąd: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                IsProcessing = false;
-                ProgressStatus = "";
-                ProgressValue = 0;
-            }
-        }
+        //        if (result)
+        //        {
+        //            ProgressValue = 100;
+        //            ProgressStatus = "Zakończono!";
+        //            string finalPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
+        //            MessageBox.Show($"Proces tworzenia wideo zakończony pomyślnie!\nPlik: {finalPath}", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show("Wystąpił błąd podczas tworzenia wideo.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show($"Wystąpił błąd: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+        //    }
+        //    finally
+        //    {
+        //        IsProcessing = false;
+        //        ProgressStatus = "";
+        //        ProgressValue = 0;
+        //    }
+        //}
 
         public void SelectAudioPath() => SelectFolder(path => AudioPath = path);
 
@@ -422,18 +422,20 @@ namespace AutoVideoCreator.Application.ViewModels
         {
             try
             {
-                // Prealokacja StringBuilder z odpowiednim początkowym rozmiarem
-                var assBuilder = new StringBuilder(32768); // 32KB prealokacja - zmniejsza liczbę realokacji pamięci
+                var assBuilder = new StringBuilder(32768);
                 var words = tekst.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 double totalDuration = duration.TotalSeconds;
 
-                // Używamy Span<T> dla bardziej wydajnych operacji
-                ReadOnlySpan<string> wordsSpan = words;
+                // Współczynnik przyspieszenia nadal 1.15 (15% szybciej)
+                const double subtitleSpeedupFactor = 1.15;
 
-                // Szybkie obliczenie całkowitej długości znaków za pomocą LINQ zamiast pętli
-                int totalCharacters = words.Sum(w => Math.Max(w.Length, 2)); // Już uwzględniamy minimum 2 znaki
+                // Szybsze animacje dla lepszej płynności
+                const int centerY = 960;
+                const int centerX = 540;
+                const int animDuration = 50;
+                const int fadeDuration = 20;
 
-                // Dodajemy stały nagłówek do pliku ASS - wszystko w jednej operacji
+                // Dodaj nagłówek ASS
                 assBuilder.Append(
                     "[Script Info]\r\n" +
                     "ScriptType: v4.00+\r\n" +
@@ -446,91 +448,173 @@ namespace AutoVideoCreator.Application.ViewModels
                     "[Events]\r\n" +
                     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\r\n");
 
-                // Stałe dla środka ekranu i animacji
-                const int centerY = 960;
-                const int centerX = 540;
-                const int animDuration = 200;
-                const int fadeDuration = 80;
-
-                // Ograniczenie liczby efektów do 3 najczęściej używanych
-                // (zmniejszenie losowości poprawia wydajność renderowania FFmpeg)
                 var effectTemplates = new[] {
-            // Efekt 1: Od lewej
-            $"{{\\move({centerX-300},{centerY},{centerX},{centerY},0,{animDuration})\\fad({fadeDuration},{fadeDuration})}}{{0}}",
-            // Efekt 2: Od prawej
-            $"{{\\move({centerX+300},{centerY},{centerX},{centerY},0,{animDuration})\\fad({fadeDuration},{fadeDuration})}}{{0}}",
-            // Efekt 3: Statyczny z fade (najbardziej wydajny - używany najczęściej)
-            $"{{\\pos({centerX},{centerY})\\fad({fadeDuration},{fadeDuration})}}{{0}}"
+            // Statyczny (dla większości słów)
+            $"{{\\pos({centerX},{centerY})\\fad({fadeDuration},{fadeDuration})}}{{0}}",
+            // Od lewej (bliżej)
+            $"{{\\move({centerX-100},{centerY},{centerX},{centerY},0,{animDuration})\\fad({fadeDuration},{fadeDuration})}}{{0}}",
+            // Od prawej (bliżej)
+            $"{{\\move({centerX+100},{centerY},{centerX},{centerY},0,{animDuration})\\fad({fadeDuration},{fadeDuration})}}{{0}}"
         };
 
-                double currentStartTime = 0;
-                double scaleFactor = 1.0;
-                bool needRescaling = false;
-                var random = new Random(Environment.TickCount); // Lepsze ziarno dla generatora
+                var random = new Random(Environment.TickCount);
 
-                // Wstępne obliczenie całkowitego czasu wyświetlania
-                double estimatedTotalTime = 0;
-                foreach (string word in words)
+                // Każde słowo pojawia się nieco szybciej niż jest wymawiane
+                double effectiveTextDuration = totalDuration / subtitleSpeedupFactor;
+
+                // Liczymy całkowitą liczbę znaków ze spacjami
+                int totalChars = 0;
+                foreach (var word in words)
                 {
-                    int effectiveLength = Math.Max(word.Length, 2);
-                    double wordTime = totalDuration * effectiveLength / totalCharacters;
-
-                    if (word.Length > 8) wordTime *= 1.2;
-                    else if (word.Length > 5) wordTime *= 1.1;
-
-                    if (word.Length <= 3) wordTime = Math.Max(wordTime, 0.5);
-                    else if (word.Length <= 6) wordTime = Math.Max(wordTime, 0.7);
-                    else wordTime = Math.Max(wordTime, 1.0);
-
-                    estimatedTotalTime += wordTime;
+                    totalChars += word.Length;
                 }
+                // Dodajemy spacje między słowami (N-1 spacji dla N słów)
+                if (words.Length > 0)
+                    totalChars += words.Length - 1;
 
-                // Jeśli potrzebne skalowanie, obliczamy współczynnik od razu
-                if (estimatedTotalTime > totalDuration)
-                {
-                    scaleFactor = totalDuration / estimatedTotalTime;
-                    needRescaling = true;
-                }
+                double timePerChar = effectiveTextDuration / totalChars;
 
-                // Tylko jedna pętla, bez potrzeby regeneracji napisów
+                // Opóźnienie początkowe 0.5s
+                double initialOffset = 0.5;
+                double currentStartTime = initialOffset;
+
+                // LICZNIKI znaków interpunkcyjnych
+                int periodCount = 0;      // licznik kropek
+                int questionCount = 0;    // licznik znaków zapytania 
+                int exclamationCount = 0; // licznik wykrzykników
+
+                // Podstawowe czasy pauz po znakach interpunkcyjnych
+                var punctuationBaseTimes = new Dictionary<string, double>
+        {
+            {".", 0.6},  // bazowa pauza po kropce
+            {"!", 0.6},  // bazowa pauza po wykrzykniku
+            {"?", 1.0},  // bazowa pauza po znaku zapytania
+            {",", 0.35}  // bazowa pauza po przecinku (bez progresji)
+        };
+
+                // Pomoże śledzić czy jesteśmy po znaku interpunkcyjnym
+                bool afterPunctuation = true; // Traktujemy pierwszy wyraz jak po interpunkcji
+
+                // Generowanie napisów dla każdego słowa
                 for (int i = 0; i < words.Length; i++)
                 {
                     string word = words[i];
-                    int effectiveLength = Math.Max(word.Length, 2);
+                    int effectIndex = 0;
 
-                    // Już uwzględniamy skalowanie w pierwotnych obliczeniach
-                    double wordDuration = totalDuration * effectiveLength / totalCharacters;
+                    // Wykryj znaki interpunkcyjne na końcu słowa
+                    char lastChar = word.Length > 0 ? word[word.Length - 1] : ' ';
+                    string lastCharStr = lastChar.ToString();
+                    bool hasPunctuation = punctuationBaseTimes.ContainsKey(lastCharStr);
 
-                    if (word.Length > 8) wordDuration *= 1.2;
-                    else if (word.Length > 5) wordDuration *= 1.1;
+                    // Obliczanie czasu trwania słowa
+                    double charCount = word.Length;
+                    double wordDuration = charCount * timePerChar;
 
-                    if (word.Length <= 3) wordDuration = Math.Max(wordDuration, 0.5);
-                    else if (word.Length <= 6) wordDuration = Math.Max(wordDuration, 0.7);
-                    else wordDuration = Math.Max(wordDuration, 1.0);
+                    // Minimalne czasy wyświetlania - nie zmieniamy bo są dobre
+                    if (word.Length <= 2)
+                        wordDuration = Math.Max(wordDuration, 0.12);
+                    else if (word.Length <= 5)
+                        wordDuration = Math.Max(wordDuration, 0.18);
+                    else
+                        wordDuration = Math.Max(wordDuration, 0.22);
 
-                    if (needRescaling)
-                        wordDuration *= scaleFactor;
+                    // Specjalne efekty po znakach interpunkcyjnych lub na początku
+                    if (afterPunctuation || i == 0)
+                    {
+                        // Po znaku interpunkcyjnym lub na początku - 75% szans na animację
+                        effectIndex = random.Next(100) < 75 ? 1 + random.Next(2) : 0;
+                        afterPunctuation = false;
+                    }
+                    else
+                    {
+                        // Normalne słowa - 85% szans na statyczny tekst
+                        effectIndex = random.Next(100) < 85 ? 0 : 1 + random.Next(2);
+                    }
 
                     double endTime = currentStartTime + wordDuration;
 
-                    // Formatowanie czasu - predefiniowane szablony dla lepszej wydajności
+                    // Formatowanie czasu
                     string startTimeStr = FormatAssTime(currentStartTime);
                     string endTimeStr = FormatAssTime(endTime);
 
-                    // Użyj trzeciego efektu (statycznego) w 70% przypadków dla poprawy wydajności
-                    int effectIndex = random.Next(10) < 7 ? 2 : random.Next(2);
-
-                    // Zastosuj String.Format zamiast interpolacji ciągów dla lepszej wydajności
                     string effectText = effectTemplates[effectIndex].Replace("{0}", word);
 
                     assBuilder.AppendFormat("Dialogue: 0,{0},{1},Default,,0,0,0,,{2}\r\n",
-                                            startTimeStr, endTimeStr, effectText);
+                                           startTimeStr, endTimeStr, effectText);
 
                     currentStartTime = endTime;
+
+                    // Dodanie pauzy po znakach interpunkcyjnych
+                    if (hasPunctuation)
+                    {
+                        // Pobierz bazowy czas pauzy
+                        double basePause = punctuationBaseTimes[lastCharStr];
+                        double actualPause = basePause;
+
+                        // ZWIĘKSZONE PROGRESYWNE PAUZY - KLUCZOWA ZMIANA
+                        if (lastCharStr == ".")
+                        {
+                            periodCount++;
+
+                            // Pierwsza kropka - normalna pauza
+                            if (periodCount == 1)
+                                actualPause = basePause; // 0.6s
+                                                         // Druga kropka - znacznie dłuższa pauza
+                            else if (periodCount == 2)
+                                actualPause = basePause * 2.0; // 1.2s zamiast 0.9s
+                                                               // Trzecia kropka - jeszcze dłuższa pauza
+                            else if (periodCount == 3)
+                                actualPause = basePause * 2.5; // 1.5s zamiast 1.08s
+                                                               // Czwarta i kolejne kropki - maksymalna pauza
+                            else
+                                actualPause = basePause * 3.0; // 1.8s
+
+                            Debug.WriteLine($"Kropka #{periodCount}, pauza: {actualPause:F2}s");
+                        }
+                        // Podobnie dla znaków zapytania
+                        else if (lastCharStr == "?")
+                        {
+                            questionCount++;
+
+                            if (questionCount == 1)
+                                actualPause = basePause; // 1.0s
+                            else if (questionCount == 2)
+                                actualPause = basePause * 1.8; // 1.8s zamiast 1.4s
+                            else
+                                actualPause = basePause * 2.3; // 2.3s zamiast 1.7s
+
+                            Debug.WriteLine($"Znak zapytania #{questionCount}, pauza: {actualPause:F2}s");
+                        }
+                        // Podobnie dla wykrzykników
+                        else if (lastCharStr == "!")
+                        {
+                            exclamationCount++;
+
+                            if (exclamationCount == 1)
+                                actualPause = basePause; // 0.6s
+                            else if (exclamationCount == 2)
+                                actualPause = basePause * 2.0; // 1.2s zamiast 0.9s
+                            else
+                                actualPause = basePause * 2.5; // 1.5s zamiast 1.08s
+
+                            Debug.WriteLine($"Wykrzyknik #{exclamationCount}, pauza: {actualPause:F2}s");
+                        }
+
+                        currentStartTime += actualPause;
+                        afterPunctuation = true;
+                    }
+                    else
+                    {
+                        // Mikroprzerwy między słowami
+                        currentStartTime += 0.01;
+                    }
                 }
 
-                // Zapisanie do pliku jedną operacją
+                // Zapisz plik
                 File.WriteAllText(filePath, assBuilder.ToString(), Encoding.UTF8);
+                Debug.WriteLine($"Utworzono napisy ASS z łącznym czasem {currentStartTime:F2}s przy długości TTS {totalDuration:F2}s");
+                Debug.WriteLine($"Opóźnienie początkowe: {initialOffset}s, całkowity czas z opóźnieniem: {currentStartTime:F2}s");
+                Debug.WriteLine($"Statystyki interpunkcji: {periodCount} kropek, {questionCount} znaków zapytania, {exclamationCount} wykrzykników");
             }
             catch (Exception ex)
             {
@@ -538,6 +622,7 @@ namespace AutoVideoCreator.Application.ViewModels
                 throw;
             }
         }
+
 
         private async Task<bool> ExtractVideoSegment(string inputVideo, string outputPath, double startTime, TimeSpan duration)
         {
@@ -820,13 +905,21 @@ namespace AutoVideoCreator.Application.ViewModels
                 // Escape special characters for JSON
                 tekst = tekst.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
 
+                // Konfiguracja z głosem Polyglot-1 i dostosowanymi parametrami
                 string json = $@"{{
         ""input"": {{ ""text"": ""{tekst}"" }},
-        ""voice"":
-        {{ ""languageCode"": ""pl-PL"", ""ssmlGender"": ""MALE"" }},
-        ""audioConfig"":
-        {{ ""audioEncoding"": ""MP3"" }}
+        ""voice"": {{
+            ""languageCode"": ""en-US"",
+            ""name"": ""en-US-Polyglot-1""
+        }},
+        ""audioConfig"": {{
+            ""audioEncoding"": ""MP3"",
+            ""pitch"": -11.0,
+            ""speakingRate"": 1.32
+        }}
         }}";
+
+                Debug.WriteLine($"TTS Request: {DateTime.Now}, Voice: Polyglot-1, Characters: {tekst.Length}");
 
                 using (HttpClient client = new HttpClient())
                 {
@@ -841,7 +934,7 @@ namespace AutoVideoCreator.Application.ViewModels
 
                         byte[] audioBytes = Convert.FromBase64String(audioBase64);
                         await File.WriteAllBytesAsync(sciezkaPliku, audioBytes);
-                        Console.WriteLine($"Plik audio zapisany: {sciezkaPliku}");
+                        Debug.WriteLine($"Plik audio zapisany: {sciezkaPliku}");
 
                         // Zwiększ licznik wykorzystanych znaków
                         int liczbaZnaków = tekst.Length;
@@ -851,19 +944,18 @@ namespace AutoVideoCreator.Application.ViewModels
                     }
                     else
                     {
-                        Console.WriteLine($"Błąd: {response.StatusCode} - {responseJson}");
-                        throw new Exception($"Błąd API Google TTS: {response.StatusCode}");
+                        Debug.WriteLine($"Błąd: {response.StatusCode} - {responseJson}");
+                        throw new Exception($"Błąd API Google TTS: {response.StatusCode}\n{responseJson}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Błąd w GenerateTTS: {ex.Message}");
+                Debug.WriteLine($"Błąd w GenerateTTS: {ex.Message}");
                 throw;
             }
         }
-
-        private async Task<bool> GenerateVideo(string fileName, TimeSpan ttsDuration, string tekst)
+        private async Task<bool> GenerateVideo(string fileName, TimeSpan estimatedDuration, string tekst)
         {
             // Lista wszystkich plików tymczasowych do późniejszego usunięcia
             List<string> tempFiles = new List<string>();
@@ -875,10 +967,8 @@ namespace AutoVideoCreator.Application.ViewModels
                 string audioVideoPath = Path.Combine(AudioPath, $"{fileName}_audio.mp4");
                 string finalVideoPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
                 string ttsAudioPath = Path.Combine(AudioPath, $"{fileName}.mp3");
-                string subtitlesPath = Path.Combine(AudioPath, $"{fileName}.ass"); // Pierwszy plik napisów
+                string subtitlesPath = Path.Combine(AudioPath, $"{fileName}.ass");
                 string extractedPath = Path.Combine(AudioPath, $"{fileName}_extract.mp4");
-
-                // Drugi plik napisów generowany w GenerateSubtitles
                 string finalSubtitlesPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.ass");
 
                 // Dodanie wszystkich plików tymczasowych do listy
@@ -887,7 +977,7 @@ namespace AutoVideoCreator.Application.ViewModels
                 tempFiles.Add(extractedPath);
                 tempFiles.Add(ttsAudioPath);
                 tempFiles.Add(subtitlesPath);
-                tempFiles.Add(finalSubtitlesPath); // Dodanie dodatkowego pliku ASS
+                tempFiles.Add(finalSubtitlesPath);
 
                 var videoFiles = Directory.GetFiles(VideoSourceFolder, "*.mp4");
                 if (videoFiles.Length == 0)
@@ -898,17 +988,18 @@ namespace AutoVideoCreator.Application.ViewModels
 
                 var randomVideo = videoFiles[new Random().Next(videoFiles.Length)];
 
-                // Wykonaj operacje, które można przeprowadzić równolegle
-                var startTimeTask = CalculateStartTime(randomVideo, ttsDuration);
-                var subtitlesTask = Task.Run(() => CreateAnimatedSubtitles(subtitlesPath, SubtitlesText, ttsDuration));
+                TimeSpan actualTtsDuration = GetDuration(Path.GetDirectoryName(ttsAudioPath), Path.GetFileName(ttsAudioPath));
+                Debug.WriteLine($"Estymowana długość: {estimatedDuration.TotalSeconds}s, rzeczywista: {actualTtsDuration.TotalSeconds}s");
 
-                // Oczekiwanie na zakończenie równoległych zadań
+                var startTimeTask = CalculateStartTime(randomVideo, actualTtsDuration);
+
+                var subtitlesTask = Task.Run(() => CreateAnimatedSubtitles(subtitlesPath, SubtitlesText, actualTtsDuration));
+
                 var startTime = await startTimeTask;
                 await subtitlesTask;
 
-                // Dalsze kroki w sekwencji
                 ProgressStatus = "Wycinanie fragmentu wideo...";
-                if (!await ExtractVideoSegment(randomVideo, extractedPath, startTime, ttsDuration))
+                if (!await ExtractVideoSegment(randomVideo, extractedPath, startTime, actualTtsDuration))
                     return false;
 
                 if (!await ConvertToVertical(ffmpegPath, tempVideoPath, extractedPath))
@@ -927,22 +1018,13 @@ namespace AutoVideoCreator.Application.ViewModels
             }
             catch (Exception ex)
             {
-                // Próba usunięcia plików tymczasowych nawet w przypadku wystąpienia błędu
-                try
-                {
-                    CleanupTempFiles(tempFiles.ToArray());
-                }
-                catch
-                {
-                    // Ignorujemy błędy przy czyszczeniu w przypadku awarii
-                }
+                try { CleanupTempFiles(tempFiles.ToArray()); }
+                catch { /* Ignorujemy błędy przy czyszczeniu */ }
 
                 MessageBox.Show($"Błąd przy generowaniu wideo: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
-
-
 
         private TimeSpan GetDuration(string path, string fileName)
         {
@@ -992,68 +1074,68 @@ namespace AutoVideoCreator.Application.ViewModels
             }
         }
 
-        //public async Task Create()
-        //{
-        //    if (!CanCreateVideo)
-        //        return;
+        public async Task Create()
+        {
+            if (!CanCreateVideo)
+                return;
 
-        //    try
-        //    {
-        //        IsProcessing = true;
-        //        ProgressValue = 0;
-        //        ProgressStatus = "Inicjalizacja...";
+            try
+            {
+                IsProcessing = true;
+                ProgressValue = 0;
+                ProgressStatus = "Inicjalizacja...";
 
-        //        if (!Directory.Exists(AudioPath))
-        //        {
-        //            MessageBox.Show("Ścieżka wyjściowa nie istnieje!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-        //            return;
-        //        }
+                if (!Directory.Exists(AudioPath))
+                {
+                    MessageBox.Show("Ścieżka wyjściowa nie istnieje!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
-        //        if (!Directory.Exists(VideoSourceFolder) || !Directory.GetFiles(VideoSourceFolder, "*.mp4").Any())
-        //        {
-        //            MessageBox.Show("Folder ze źródłowymi plikami wideo nie istnieje lub jest pusty!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-        //            return;
-        //        }
+                if (!Directory.Exists(VideoSourceFolder) || !Directory.GetFiles(VideoSourceFolder, "*.mp4").Any())
+                {
+                    MessageBox.Show("Folder ze źródłowymi plikami wideo nie istnieje lub jest pusty!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
-        //        var fileName = Guid.NewGuid().ToString();
-        //        string audioFilePath = Path.Combine(AudioPath, $"{fileName}.mp3");
+                var fileName = Guid.NewGuid().ToString();
+                string audioFilePath = Path.Combine(AudioPath, $"{fileName}.mp3");
 
-        //        // Generowanie pliku TTS
-        //        ProgressStatus = "Generowanie audio...";
-        //        ProgressValue = 20;
-        //        await GenerateTTS(InputText, audioFilePath);
+                // Generowanie pliku TTS
+                ProgressStatus = "Generowanie audio...";
+                ProgressValue = 20;
+                await GenerateTTS(InputText, audioFilePath);
 
-        //        // Pobranie długości pliku audio
-        //        ProgressStatus = "Analiza pliku audio...";
-        //        ProgressValue = 40;
-        //        TimeSpan duration = GetDuration(AudioPath, $"{fileName}.mp3");
+                // Pobranie długości pliku audio
+                ProgressStatus = "Analiza pliku audio...";
+                ProgressValue = 40;
+                TimeSpan duration = GetDuration(AudioPath, $"{fileName}.mp3");
 
-        //        // Generowanie wideo
-        //        ProgressStatus = "Generowanie wideo...";
-        //        ProgressValue = 60;
-        //        bool result = await GenerateVideo(fileName, duration, InputText);
-        //        if (result)
-        //        {
-        //            ProgressValue = 100;
-        //            ProgressStatus = "Zakończono!";
-        //            string finalPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
-        //            MessageBox.Show($"Proces tworzenia wideo zakończony pomyślnie!\nPlik: {finalPath}", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
-        //        }
-        //        else
-        //        {
-        //            MessageBox.Show("Wystąpił błąd podczas tworzenia wideo.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        MessageBox.Show($"Wystąpił błąd: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-        //    }
-        //    finally
-        //    {
-        //        IsProcessing = false;
-        //        ProgressStatus = "";
-        //        ProgressValue = 0;
-        //    }
-        //}
+                // Generowanie wideo
+                ProgressStatus = "Generowanie wideo...";
+                ProgressValue = 60;
+                bool result = await GenerateVideo(fileName, duration, InputText);
+                if (result)
+                {
+                    ProgressValue = 100;
+                    ProgressStatus = "Zakończono!";
+                    string finalPath = Path.Combine(AudioPath, $"{fileName}_final_subbed.mp4");
+                    MessageBox.Show($"Proces tworzenia wideo zakończony pomyślnie!\nPlik: {finalPath}", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Wystąpił błąd podczas tworzenia wideo.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Wystąpił błąd: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
+                ProgressStatus = "";
+                ProgressValue = 0;
+            }
+        }
     }
 }
